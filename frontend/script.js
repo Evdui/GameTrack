@@ -4,6 +4,7 @@ const gameForm = document.getElementById("game-form");
 const gamesList = document.getElementById("games-list");
 
 const titleInput = document.getElementById("title");
+const genreInput = document.getElementById("genre");
 const platformInput = document.getElementById("platform");
 const progressInput = document.getElementById("progress");
 const statusInput = document.getElementById("status");
@@ -36,6 +37,7 @@ function hideError() {
     errorMessage.classList.add("hidden");
 }
 
+
 // Load all games
 async function loadGames() {
     loadingMessage.classList.remove("hidden");
@@ -55,13 +57,17 @@ async function loadGames() {
         updateFilters(games);
         applyFilters();
         updateStats(games);
+
     } catch (error) {
+        console.error(error);
         showError("Could not connect to the backend. Please try again.");
     } finally {
         loadingMessage.classList.add("hidden");
     }
 }
 
+
+// Apply search and filters
 function applyFilters() {
     const searchText = searchInput.value.trim().toLowerCase();
     const selectedStatus = statusFilter.value;
@@ -70,7 +76,8 @@ function applyFilters() {
     const filteredGames = allGames.filter((game) => {
 
         const matchesSearch =
-            game.title.toLowerCase().includes(searchText);
+            game.title.toLowerCase().includes(searchText) ||
+            game.genre.toLowerCase().includes(searchText);
 
         const matchesStatus =
             selectedStatus === "all" ||
@@ -86,26 +93,43 @@ function applyFilters() {
     displayGames(filteredGames);
 }
 
+
+// Update filter dropdowns
 function updateFilters(games) {
-    const statuses = [...new Set(games.map(game => game.status))];
-    const platforms = [...new Set(games.map(game => game.platform))];
+
+    const statuses = [
+        ...new Set(games.map(game => game.status))
+    ];
+
+    const platforms = [
+        ...new Set(games.map(game => game.platform))
+    ];
 
     statusFilter.innerHTML = `
         <option value="all">All Status</option>
+
         ${statuses.map(status => `
-            <option value="${status}">${status}</option>
+            <option value="${status}">
+                ${status}
+            </option>
         `).join("")}
     `;
 
     platformFilter.innerHTML = `
         <option value="all">All Platforms</option>
+
         ${platforms.map(platform => `
-            <option value="${platform}">${platform}</option>
+            <option value="${platform}">
+                ${platform}
+            </option>
         `).join("")}
     `;
 }
 
+
+// Update statistics
 function updateStats(games) {
+
     const totalGames = games.length;
 
     const playingGames = games.filter(
@@ -118,19 +142,30 @@ function updateStats(games) {
 
     const averageProgress = totalGames > 0
         ? Math.round(
-            games.reduce((sum, game) => sum + Number(game.progress), 0) / totalGames
+            games.reduce(
+                (sum, game) => sum + Number(game.progress),
+                0
+            ) / totalGames
         )
         : 0;
 
-    document.getElementById("total-games").textContent = totalGames;
-    document.getElementById("playing-games").textContent = playingGames;
-    document.getElementById("completed-games").textContent = completedGames;
-    document.getElementById("average-progress").textContent = `${averageProgress}%`;
+    document.getElementById("total-games").textContent =
+        totalGames;
+
+    document.getElementById("playing-games").textContent =
+        playingGames;
+
+    document.getElementById("completed-games").textContent =
+        completedGames;
+
+    document.getElementById("average-progress").textContent =
+        `${averageProgress}%`;
 }
 
 
-// Display games on the page
+// Display games
 function displayGames(games) {
+
     gamesList.innerHTML = "";
 
     if (games.length === 0) {
@@ -139,6 +174,7 @@ function displayGames(games) {
     }
 
     games.forEach((game) => {
+
         const gameCard = document.createElement("div");
 
         gameCard.className = "game-card";
@@ -146,11 +182,25 @@ function displayGames(games) {
         gameCard.innerHTML = `
             <h3>${game.title}</h3>
 
-            <p><strong>Platform:</strong> ${game.platform}</p>
+            <p>
+                <strong>Genre:</strong>
+                ${game.genre}
+            </p>
 
-            <p><strong>Status:</strong> ${game.status}</p>
+            <p>
+                <strong>Platform:</strong>
+                ${game.platform}
+            </p>
 
-            <p><strong>Progress:</strong> ${game.progress}%</p>
+            <p>
+                <strong>Status:</strong>
+                ${game.status}
+            </p>
+
+            <p>
+                <strong>Progress:</strong>
+                ${game.progress}%
+            </p>
 
             <div class="progress-container">
                 <div
@@ -159,9 +209,13 @@ function displayGames(games) {
                 ></div>
             </div>
 
-            <p><strong>Notes:</strong> ${game.notes || "No notes"}</p>
+            <p>
+                <strong>Notes:</strong>
+                ${game.notes || "No notes"}
+            </p>
 
             <div class="game-actions">
+
                 <button
                     class="edit-button"
                     onclick="startEdit(${game.id})"
@@ -175,6 +229,7 @@ function displayGames(games) {
                 >
                     Delete
                 </button>
+
             </div>
         `;
 
@@ -185,12 +240,14 @@ function displayGames(games) {
 
 // Add or update a game
 gameForm.addEventListener("submit", async (event) => {
+
     event.preventDefault();
 
     hideError();
 
     const gameData = {
         title: titleInput.value.trim(),
+        genre: genreInput.value.trim(),
         platform: platformInput.value.trim(),
         progress: Number(progressInput.value),
         status: statusInput.value,
@@ -198,26 +255,37 @@ gameForm.addEventListener("submit", async (event) => {
     };
 
     try {
+
         let response;
 
         if (editingGameId === null) {
-            // Create
+
+            // Create a new game
             response = await fetch(`${BACKEND_URL}/games`, {
                 method: "POST",
+
                 headers: {
                     "Content-Type": "application/json"
                 },
+
                 body: JSON.stringify(gameData)
             });
+
         } else {
-            // Update
-            response = await fetch(`${BACKEND_URL}/games/${editingGameId}`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(gameData)
-            });
+
+            // Update existing game
+            response = await fetch(
+                `${BACKEND_URL}/games/${editingGameId}`,
+                {
+                    method: "PUT",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify(gameData)
+                }
+            );
         }
 
         if (!response.ok) {
@@ -225,20 +293,30 @@ gameForm.addEventListener("submit", async (event) => {
         }
 
         resetForm();
+
         await loadGames();
 
     } catch (error) {
-        showError("Could not save the game. Please try again.");
+
+        console.error(error);
+
+        showError(
+            "Could not save the game. Please try again."
+        );
     }
 });
 
 
 // Start editing a game
 async function startEdit(id) {
+
     hideError();
 
     try {
-        const response = await fetch(`${BACKEND_URL}/games`);
+
+        const response = await fetch(
+            `${BACKEND_URL}/games`
+        );
 
         if (!response.ok) {
             throw new Error("Failed to load games");
@@ -246,13 +324,16 @@ async function startEdit(id) {
 
         const games = await response.json();
 
-        const game = games.find((game) => game.id === id);
+        const game = games.find(
+            game => game.id === id
+        );
 
         if (!game) {
             throw new Error("Game not found");
         }
 
         titleInput.value = game.title;
+        genreInput.value = game.genre || "";
         platformInput.value = game.platform;
         progressInput.value = game.progress;
         statusInput.value = game.status;
@@ -262,6 +343,7 @@ async function startEdit(id) {
 
         formTitle.textContent = "Edit Game";
         submitButton.textContent = "Update Game";
+
         cancelButton.classList.remove("hidden");
 
         window.scrollTo({
@@ -270,14 +352,22 @@ async function startEdit(id) {
         });
 
     } catch (error) {
-        showError("Could not load the game for editing.");
+
+        console.error(error);
+
+        showError(
+            "Could not load the game for editing."
+        );
     }
 }
 
 
 // Delete a game
 async function deleteGame(id) {
-    const confirmed = confirm("Are you sure you want to delete this game?");
+
+    const confirmed = confirm(
+        "Are you sure you want to delete this game?"
+    );
 
     if (!confirmed) {
         return;
@@ -286,9 +376,13 @@ async function deleteGame(id) {
     hideError();
 
     try {
-        const response = await fetch(`${BACKEND_URL}/games/${id}`, {
-            method: "DELETE"
-        });
+
+        const response = await fetch(
+            `${BACKEND_URL}/games/${id}`,
+            {
+                method: "DELETE"
+            }
+        );
 
         if (!response.ok) {
             throw new Error("Delete failed");
@@ -297,7 +391,12 @@ async function deleteGame(id) {
         await loadGames();
 
     } catch (error) {
-        showError("Could not delete the game. Please try again.");
+
+        console.error(error);
+
+        showError(
+            "Could not delete the game. Please try again."
+        );
     }
 }
 
@@ -310,20 +409,39 @@ cancelButton.addEventListener("click", () => {
 
 // Reset the form
 function resetForm() {
+
     gameForm.reset();
 
     editingGameId = null;
 
     formTitle.textContent = "Add a Game";
+
     submitButton.textContent = "Add Game";
+
     cancelButton.classList.add("hidden");
 }
 
-searchInput.addEventListener("input", applyFilters);
 
-statusFilter.addEventListener("change", applyFilters);
+// Search
+searchInput.addEventListener(
+    "input",
+    applyFilters
+);
 
-platformFilter.addEventListener("change", applyFilters);
 
-// Load games when the page opens
+// Status filter
+statusFilter.addEventListener(
+    "change",
+    applyFilters
+);
+
+
+// Platform filter
+platformFilter.addEventListener(
+    "change",
+    applyFilters
+);
+
+
+// Load games when page opens
 loadGames();
