@@ -20,6 +20,7 @@ const errorMessage = document.getElementById("error");
 const searchInput = document.getElementById("search-input");
 const statusFilter = document.getElementById("status-filter");
 const platformFilter = document.getElementById("platform-filter");
+const sortFilter = document.getElementById("sort-filter");
 
 let editingGameId = null;
 let allGames = [];
@@ -72,12 +73,13 @@ function applyFilters() {
     const searchText = searchInput.value.trim().toLowerCase();
     const selectedStatus = statusFilter.value;
     const selectedPlatform = platformFilter.value;
+    const selectedSort = sortFilter.value;
 
-    const filteredGames = allGames.filter((game) => {
+    let filteredGames = allGames.filter((game) => {
 
         const matchesSearch =
             game.title.toLowerCase().includes(searchText) ||
-            game.genre.toLowerCase().includes(searchText);
+            (game.genre || "").toLowerCase().includes(searchText);
 
         const matchesStatus =
             selectedStatus === "all" ||
@@ -88,6 +90,24 @@ function applyFilters() {
             game.platform === selectedPlatform;
 
         return matchesSearch && matchesStatus && matchesPlatform;
+    });
+
+    filteredGames.sort((a, b) => {
+
+        if (selectedSort === "title-asc") {
+            return a.title.localeCompare(b.title);
+        }
+
+        if (selectedSort === "progress-asc") {
+            return Number(a.progress) - Number(b.progress);
+        }
+
+        if (selectedSort === "progress-desc") {
+            return Number(b.progress) - Number(a.progress);
+        }
+
+        // Newest added
+        return Number(b.id) - Number(a.id);
     });
 
     displayGames(filteredGames);
@@ -441,6 +461,8 @@ platformFilter.addEventListener(
     "change",
     applyFilters
 );
+
+sortFilter.addEventListener("change", applyFilters);
 
 
 // Load games when page opens
