@@ -17,12 +17,33 @@ app.get("/health", (req, res) => {
 
 // Create a game
 app.post("/games", (req, res) => {
-    const { title, platform, progress, status, notes } = req.body;
+    const {
+        title,
+        genre,
+        platform,
+        progress,
+        status,
+        notes
+    } = req.body;
 
     const result = db.prepare(`
-        INSERT INTO games (title, platform, progress, status, notes)
-        VALUES (?, ?, ?, ?, ?)
-    `).run(title, platform, progress, status, notes);
+        INSERT INTO games (
+            title,
+            genre,
+            platform,
+            progress,
+            status,
+            notes
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+        title,
+        genre,
+        platform,
+        progress,
+        status,
+        notes
+    );
 
     const game = db.prepare(`
         SELECT * FROM games WHERE id = ?
@@ -43,17 +64,41 @@ app.get("/games", (req, res) => {
 
 // Update a game
 app.put("/games/:id", (req, res) => {
-    const { title, platform, progress, status, notes } = req.body;
+    const {
+        title,
+        genre,
+        platform,
+        progress,
+        status,
+        notes
+    } = req.body;
+
     const id = req.params.id;
 
     const result = db.prepare(`
         UPDATE games
-        SET title = ?, platform = ?, progress = ?, status = ?, notes = ?
+        SET
+            title = ?,
+            genre = ?,
+            platform = ?,
+            progress = ?,
+            status = ?,
+            notes = ?
         WHERE id = ?
-    `).run(title, platform, progress, status, notes, id);
+    `).run(
+        title,
+        genre,
+        platform,
+        progress,
+        status,
+        notes,
+        id
+    );
 
     if (result.changes === 0) {
-        return res.status(404).json({ error: "Game not found" });
+        return res.status(404).json({
+            error: "Game not found"
+        });
     }
 
     const game = db.prepare(`
@@ -73,10 +118,14 @@ app.delete("/games/:id", (req, res) => {
     `).run(id);
 
     if (result.changes === 0) {
-        return res.status(404).json({ error: "Game not found" });
+        return res.status(404).json({
+            error: "Game not found"
+        });
     }
 
-    res.json({ message: "Game deleted successfully" });
+    res.json({
+        message: "Game deleted successfully"
+    });
 });
 
 app.listen(PORT, () => {
