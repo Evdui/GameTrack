@@ -1,7 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-const db = require("./database");
+
+const { pool, initializeDatabase } = require("./database");
 
 const app = express();
 
@@ -10,124 +11,169 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
+
 // Health check
 app.get("/health", (req, res) => {
     res.json({ status: "ok" });
 });
 
-// Create a game
-app.post("/games", (req, res) => {
-    const {
-        title,
-        genre,
-        platform,
-        progress,
-        status,
-        notes
-    } = req.body;
 
-    const result = db.prepare(`
-        INSERT INTO games (
+// Create a game
+app.post("/games", async (req, res) => {
+    try {
+        const {
             title,
             genre,
             platform,
             progress,
             status,
             notes
-        )
-        VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-        title,
-        genre,
-        platform,
-        progress,
-        status,
-        notes
-    );
+        } = req.body;
 
-    const game = db.prepare(`
-        SELECT * FROM games WHERE id = ?
-    `).get(result.lastInsertRowid);
+        const result = await pool.query(`
+            INSERT INTO games (
+                title,
+                genre,
+                platform,
+                progress,
+                status,
+                notes
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *
+        `, [
+            title,
+            genre,
+            platform,
+            progress,
+            status,
+            notes
+        ]);
 
-    res.status(201).json(game);
+        res.status(201).json(result.rows[0]);
+
+    } catch (error) {
+        console.error("Error creating game:", error);
+        res.status(500).json({
+            error: "Failed to create game"
+        });
+    }
 });
+
 
 // Get all games
-app.get("/games", (req, res) => {
-    const games = db.prepare(`
-        SELECT * FROM games
-        ORDER BY id DESC
-    `).all();
+app.get("/games", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT * FROM games
+            ORDER BY id DESC
+        `);
 
-    res.json(games);
+        res.json(result.rows);
+
+    } catch (error) {
+        console.error("Error fetching games:", error);
+        res.status(500).json({
+            error: "Failed to fetch games"
+        });
+    }
 });
+
 
 // Update a game
-app.put("/games/:id", (req, res) => {
-    const {
-        title,
-        genre,
-        platform,
-        progress,
-        status,
-        notes
-    } = req.body;
+app.put("/games/:id", async (req, res) => {
+    try {
+        const {
+            title,
+            genre,
+            platform,
+            progress,
+            status,
+            notes
+        } = req.body;
 
-    const id = req.params.id;
+        const id = req.params.id;
 
-    const result = db.prepare(`
-        UPDATE games
-        SET
-            title = ?,
-            genre = ?,
-            platform = ?,
-            progress = ?,
-            status = ?,
-            notes = ?
-        WHERE id = ?
-    `).run(
-        title,
-        genre,
-        platform,
-        progress,
-        status,
-        notes,
-        id
-    );
+        const result = await pool.query(`
+            UPDATE games
+            SET
+                title = $1,
+                genre = $2,
+                platform = $3,
+                progress = $4,
+                status = $5,
+                notes = $6
+            WHERE id = $7
+            RETURNING *
+        `, [
+            title,
+            genre,
+            platform,
+            progress,
+            status,
+            notes,
+            id
+        ]);
 
-    if (result.changes === 0) {
-        return res.status(404).json({
-            error: "Game not found"
+        if (result.rowCount === 0) {
+            return res.status(404).json({
+                error: "Game not found"
+            });
+        }
+
+        res.json(result.rows[0]);
+
+    } catch (error) {
+        console.error("Error updating game:", error);
+        res.status(500).json({
+            error: "Failed to update game"
         });
     }
-
-    const game = db.prepare(`
-        SELECT * FROM games WHERE id = ?
-    `).get(id);
-
-    res.json(game);
 });
+
 
 // Delete a game
-app.delete("/games/:id", (req, res) => {
-    const id = req.params.id;
+app.delete("/games/:id", async (req, res) => {
+    try {
+        const id = req.params.id;
 
-    const result = db.prepare(`
-        DELETE FROM games
-        WHERE id = ?
-    `).run(id);
+        const result = await pool.query(`
+            DELETE FROM games
+            WHERE id = $1
+        `, [id]);
 
-    if (result.changes === 0) {
-        return res.status(404).json({
-            error: "Game not found"
+        if (result.rowCount === 0) {
+            return res.status(404).json({
+                error: "Game not found"
+            });
+        }
+
+        res.json({
+            message: "Game deleted successfully"
+        });
+
+    } catch (error) {
+        console.error("Error deleting game:", error);
+        res.status(500).json({
+            error: "Failed to delete game"
         });
     }
-
-    res.json({
-        message: "Game deleted successfully"
-    });
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+
+// Start server after database initialization
+async function startServer() {
+    try {
+        await initializeDatabase();
+
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+
+    } catch (error) {
+        console.error("Failed to initialize database:", error);
+        process.exit(1);
+    }
+}
+
+startServer();

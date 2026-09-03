@@ -1,28 +1,32 @@
-const Database = require("better-sqlite3");
+const { Pool } = require("pg");
 
-const db = new Database("games.db");
+const isProduction = process.env.NODE_ENV === "production";
 
-db.prepare(`
-    CREATE TABLE IF NOT EXISTS games (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        genre TEXT,
-        platform TEXT NOT NULL,
-        progress INTEGER NOT NULL,
-        status TEXT NOT NULL,
-        notes TEXT
-    )
-`).run();
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: isProduction
+        ? { rejectUnauthorized: false }
+        : false
+});
 
-// Add genre to an existing database if the column does not exist
-const columns = db.prepare(`PRAGMA table_info(games)`).all();
+async function initializeDatabase() {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS games (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            genre TEXT,
+            platform TEXT NOT NULL,
+            progress INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            notes TEXT
+        )
+    `);
 
-const hasGenreColumn = columns.some(column => column.name === "genre");
-
-if (!hasGenreColumn) {
-    db.prepare(`ALTER TABLE games ADD COLUMN genre TEXT`).run();
+    console.log("Database ready");
 }
 
-console.log("Database ready");
+module.exports = {
+    pool,
+    initializeDatabase
+};
 
-module.exports = db;
